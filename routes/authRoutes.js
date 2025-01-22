@@ -153,4 +153,21 @@ router.get("/getPeople", verifyToken, async (req, res) => {
   }
 });
 
+router.delete("/deleteUser/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const db = await connectToDataBase();
+    const [rows] = await db.query("DELETE from users WHERE id =?", [id]);
+    if (rows.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    console.log("Sql upit", rows);
+
+    res.status(201).json({ message: "Uspesno izbrisan user" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;
