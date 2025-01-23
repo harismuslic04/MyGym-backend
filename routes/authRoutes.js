@@ -39,6 +39,9 @@ router.post("/login", async (req, res) => {
     const user = rows[0];
     if (user.password == password) {
       // return res.status(200).json({ message: "uspesno loginovanje" });
+      await db.query("UPDATE users SET is_logged_in = 1 WHERE email = ?", [
+        email,
+      ]);
       const token = jwt.sign({ id: rows[0].id }, process.env.JWT_KEY, {
         expiresIn: "3h",
       });
@@ -167,6 +170,33 @@ router.delete("/deleteUser/:id", verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+router.get("/activeUsers", async (req, res) => {
+  try {
+    const db = await connectToDataBase();
+    const [rows] = await db.query(
+      "SELECT COUNT(*) AS activeUsers FROM users WHERE is_logged_in = 1"
+    );
+    console.log("Query result:", rows); // Proveri rezultat upita
+    res.json({ activeUsers: rows[0].activeUsers });
+  } catch (err) {
+    console.error("Database error:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/logout", async (req, res) => {
+  const { email } = req.body;
+  try {
+    const db = await connectToDataBase();
+    await db.query("UPDATE users SET is_logged_in = 0 WHERE email = ?", [
+      email,
+    ]);
+    res.status(201).json({ message: "uspesno odlogovan" });
+  } catch (err) {
+    console.error(err);
+    res.status(501).json({ message: "Server error" });
   }
 });
 
