@@ -45,7 +45,9 @@ router.post("/login", async (req, res) => {
       const token = jwt.sign({ id: rows[0].id }, process.env.JWT_KEY, {
         expiresIn: "3h",
       });
-      return res.status(201).json({ token: token, username: user.username });
+      return res
+        .status(201)
+        .json({ token: token, username: user.username, email: user.email });
     } else {
       return res.status(400).json({ message: "netacna sifra" });
     }
@@ -103,9 +105,21 @@ router.post("/addWorkout", verifyToken, async (req, res) => {
   try {
     const db = await connectToDataBase();
 
+    // Provera da li trening za određeni datum već postoji
+    const [existingWorkout] = await db.query(
+      "SELECT * FROM user_workouts WHERE user_id = ? AND date = ?",
+      [req.userId, date]
+    );
+
+    if (existingWorkout.length > 0) {
+      return res.status(400).json({
+        error: "Trening za ovaj datum već postoji.",
+      });
+    }
+
     // Unos podataka u tabelu treninga
     await db.query(
-      "INSERT INTO user_workouts (user_id, date, misici1, setovi1, misici2, setovi2, misici3, setovi3, misici4, setovi4, misici5, setovi5,rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+      "INSERT INTO user_workouts (user_id, date, misici1, setovi1, misici2, setovi2, misici3, setovi3, misici4, setovi4, misici5, setovi5, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         req.userId,
         date,
@@ -149,7 +163,15 @@ router.get("/getPeople", verifyToken, async (req, res) => {
   try {
     const db = await connectToDataBase();
     const [rows] = await db.query("SELECT email, username,id FROM users;");
-    res.status(200).json(rows);
+    const [activeUsersResult] = await db.query(
+      "SELECT COUNT(*) AS active_users FROM users"
+    );
+    const activeUsers = activeUsersResult[0].active_users || 0;
+    const [totalCustomersResult] = await db.query(
+      "SELECT MAX(id) AS total_users FROM users;"
+    );
+    const totalCustomers = totalCustomersResult[0].total_users || 0;
+    res.status(200).json({ rows, activeUsers, totalCustomers });
   } catch (err) {
     console.log("Error details", err.message);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -178,7 +200,7 @@ router.get("/activeUsers", async (req, res) => {
     const [rows] = await db.query(
       "SELECT COUNT(*) AS activeUsers FROM users WHERE is_logged_in = 1"
     );
-    console.log("Query result:", rows); // Proveri rezultat upita
+    // Proveri rezultat upita
     res.json({ activeUsers: rows[0].activeUsers });
   } catch (err) {
     console.error("Database error:", err.message);
